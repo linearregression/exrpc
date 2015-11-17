@@ -128,12 +128,13 @@ defmodule ExRPC do
   @doc """
     Performs an ExRPC `async`, by automatically connecting to a remote `node` and
     sending a "protected" {`m`,`f`,`a`} call that will be executed without the caller waiting.
+    Result returns within `recv_to` milliseconds or timeout.
      A 'reference key' is returned containing the information to ask for the execution result.
   """
   @spec async(node, module, function, list | nil) :: {:badtcp | :badrpc, any} | true
-  def async(node, m, f, a \\ [])
+  def async(node, m, f, a \\ [], recv_to \\ nil, send_to \\ nil)
   do
-    ExRPC.Client.async(node, m, f, a)
+    ExRPC.Client.async(node, m, f, a, recv_to, send_to)
   end
 
   @doc """

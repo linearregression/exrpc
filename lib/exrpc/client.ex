@@ -35,12 +35,6 @@ defmodule ExRPC.Client do
      end
   end
 
-  defmacro is_key(key_ast) do
-     quote do
-        is_pid(unquote(key_ast)) or is_reference(unquote(key_ast)) 
-     end
-  end
-
   # ===================================================
   # Public API
   # ===================================================
@@ -97,22 +91,14 @@ defmodule ExRPC.Client do
        is_proper_timeout(recv_to) and
        is_proper_timeout(send_to)
   do
-    # Naming our gen_server as the node we're calling as it is extremely efficent:
-    # We'll never deplete atoms because all connected node names are already atoms in this VM
-    case GenServer.whereis(server_nodes) do
-      nil ->
-        case ExRPC.Dispatcher.start_client(server_nodes) do
-          {:ok, new_pid} ->
-            # We take care of CALL inside the GenServer
-            # This is not resilient enough if the caller's mailbox is full
-            # but it's good enough for now
-            GenServer.call(new_pid, {{:call,m,f,a}, recv_to, send_to}, :infinity)
-          {:error, reason} ->
-            reason
-        end
-      pid ->
-        GenServer.call(pid, {{:call,m,f,a}, recv_to, send_to}, :infinity)
-    end
+    async_eval = fn(node) ->
+                            key = async(node, m, f, a, recv_to, send_to)
+                            {node, key}
+                 end
+    server_nodes |> Stream.map &(async_eval.(&1)) 
+#|> &await(&1, recv_to) |> &normalize_reply(&1)
+
+#|> &await(&1, recv_to) |> &normalize_reply.&1)
   end
 
   @doc """
@@ -177,12 +163,14 @@ defmodule ExRPC.Client do
     sending a "protected" {`m`,`f`,`a`} call that will be executed without the caller waiting.
      A 'reference' is returned containing the information to ask for the execution result.
   """
-  @spec async(node, module, function, list) :: true
-  def async(server_node, m, f, a \\ [])
+  @spec async(node, module, function, list, timeout | nil, timeout | nil) :: true
+  def async(server_node, m, f, a \\ [], recv_to, send_to)
   when is_atom(server_node) and is_atom(m) and
-       is_atom(f) and is_list(a)
+       is_atom(f) and is_list(a) and
+       is_proper_timeout(recv_to) and
+       is_proper_timeout(send_to)
   do
-    Task.async(fn -> call(server_node, m, f, a) end)
+    Task.async(fn -> call(server_node, m, f, a, recv_to, send_to) end)
   end
 
   @spec yield(task :: %Task{pid: term, ref: term}, timeout | nil) :: true
@@ -421,5 +409,11 @@ defmodule ExRPC.Client do
       reply ->  reply
     end
   end
+
+#  defp yield_results([]) do [[],[]] end
+#  defp yield_results(keys)
+
+#  end
+
 end
 

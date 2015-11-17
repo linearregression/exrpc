@@ -70,6 +70,10 @@ defmodule ExRPC.Test.Functional.Async do
   test "Async slave with process timeout on local node" do
     task = ExRPC.async(master, :erlang, :apply, [fn() -> :timer.sleep(10000) end, []])
     assert catch_exit(ExRPC.await(task, 1000) == {:timeout, {Task, :await, [task, 1000]}})
+    task = ExRPC.async(master, :erlang, :node, 10, 0)
+    assert catch_exit(ExRPC.await(task, 1000) == {:timeout, {Task, :await, [task, 1000]}})
+    task = ExRPC.async(master, :erlang, :node, 0, 10)
+    assert catch_exit(ExRPC.await(task, 1000) == {:timeout, {Task, :await, [task, 1000]}})
   end
 
   test "Await cannot reuse reference" do
@@ -104,6 +108,10 @@ _,_,_,_]}}} = (ExRPC.await(task, 1000))
 
   test "Async slave with process timeout on remote node" do
     task = ExRPC.async(slave, :timer,:sleep, [10000])
+    assert catch_exit(ExRPC.await(task, 1000) == {:timeout, {Task, :await, [task, 1000]}})
+    task = ExRPC.async(slave, :erlang, :node, 10, 0)
+    assert catch_exit(ExRPC.await(task, 1000) == {:timeout, {Task, :await, [task, 1000]}})
+    task = ExRPC.async(slave, :erlang, :node, 0, 10)
     assert catch_exit(ExRPC.await(task, 1000) == {:timeout, {Task, :await, [task, 1000]}})
   end
 
