@@ -84,6 +84,38 @@ defmodule ExRPC.Client do
   end
 
   @doc """
+    Performs an ExRPC `multicall`, by automatically connecting to a listof `nodes`,
+    performing a "protected" {`m`,`f`,`a`} call and returning the result within
+    `recv_to` milliseconds. Results are gathered as a list with two sublists.
+    First sublist consists of execution results come abck as the order requests were sent.     
+    Second sublist consists of nodes that failed. 
+  """
+  @spec multicall([node], module, function, list, timeout | nil, timeout | nil) :: {:badtcp | :badrpc, any} | any
+  def multicall(server_nodes, m, f, a \\ [], recv_to \\ nil, send_to \\ nil)
+  when is_list(server_nodes) and is_atom(m) and
+       is_atom(f) and is_list(a) and
+       is_proper_timeout(recv_to) and
+       is_proper_timeout(send_to)
+  do
+    # Naming our gen_server as the node we're calling as it is extremely efficent:
+    # We'll never deplete atoms because all connected node names are already atoms in this VM
+    case GenServer.whereis(server_nodes) do
+      nil ->
+        case ExRPC.Dispatcher.start_client(server_nodes) do
+          {:ok, new_pid} ->
+            # We take care of CALL inside the GenServer
+            # This is not resilient enough if the caller's mailbox is full
+            # but it's good enough for now
+            GenServer.call(new_pid, {{:call,m,f,a}, recv_to, send_to}, :infinity)
+          {:error, reason} ->
+            reason
+        end
+      pid ->
+        GenServer.call(pid, {{:call,m,f,a}, recv_to, send_to}, :infinity)
+    end
+  end
+
+  @doc """
     Performs an ExRPC `cast`, by automatically connecting to a remote `node` and
     sending a "protected" {`m`,`f`,`a`} call that will execute but never return the result
     (an asynchronous cast).

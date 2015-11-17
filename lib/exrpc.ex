@@ -84,6 +84,25 @@ defmodule ExRPC do
   end
 
   @doc """
+    Performs an ExRPC `multicall`, by automatically connecting to a list of `nodes`,
+    performing a "protected" {`m`,`f`,`a`} call and returning the result within
+    `recv_to` milliseconds. It same behavours as call, except result format.
+    Results are gathered as a list with two sublists. First sublist consists of execution 
+    results come abck as the order requests were sent. Second sublist consists of nodes
+    that failed.
+
+  """
+  @spec multicall([node], module, function, list, timeout | nil, timeout | nil) :: {:badtcp | :badrpc, any} | any
+  def multicall(nodes, m, f, a \\ [], recv_to \\ nil, send_to \\ nil)
+  do
+    ExRPC.Client.multicall(nodes, m, f, a, recv_to, send_to)
+  end
+
+
+
+
+
+  @doc """
     Performs an ExRPC `cast`, by automatically connecting to a remote `node` and
     sending a "protected" {`m`,`f`,`a`} call that will execute but never return the result
     (an asynchronous cast).
